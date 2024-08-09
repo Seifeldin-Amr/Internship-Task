@@ -6,6 +6,7 @@ interface TaskProps {
     id: string;
     title: string;
     completed: boolean;
+    createdAt: string; 
   };
   deleteTask: (id: string) => void;
   toggleTaskCompletion: (id: string) => void;
@@ -29,9 +30,14 @@ export default function Task({ task, deleteTask, toggleTaskCompletion }: TaskPro
           checked={task.completed}
           onToggle={() => toggleTaskCompletion(task.id)}
         />
-        <Text style={[styles.taskText, task.completed && styles.completedTask]}>
-          {task.title}
-        </Text>
+        <View style={styles.taskInfo}>
+          <Text style={[styles.taskText, task.completed && styles.completedTask]}>
+            {task.title}
+          </Text>
+          <Text style={styles.taskTime}>
+            Added at: {task.createdAt}
+          </Text>
+        </View>
       </View>
       <TouchableOpacity onPress={() => deleteTask(task.id)}>
         <Text style={styles.deleteText}>X</Text>
@@ -72,11 +78,14 @@ const styles = StyleSheet.create({
   },
   checked: {
     backgroundColor: 'green', 
-    borderColor: 'white',
+    borderColor: 'green',
   },
   checkmark: {
-    color: 'white',
+    color: 'white', 
     fontSize: 16,
+  },
+  taskInfo: {
+    flex: 1,
   },
   taskText: {
     fontSize: 18,
@@ -84,6 +93,10 @@ const styles = StyleSheet.create({
   completedTask: {
     textDecorationLine: 'line-through',
     color: 'gray',
+  },
+  taskTime: {
+    fontSize: 14,
+    color: '#666',
   },
   deleteText: {
     color: 'red',
