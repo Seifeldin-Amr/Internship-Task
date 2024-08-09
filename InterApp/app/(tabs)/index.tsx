@@ -1,21 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import Task from '../../components/Task';
+import * as Notifications from 'expo-notifications';
 
-interface Task {
+// Rename Task type to TaskType
+interface TaskType {
   id: string;
   title: string;
   completed: boolean;
   createdAt: string;
 }
 
+// Import Task component if you have it in a separate file
+import Task from '../../components/Task';
+
+// Request Notification Permissions
+const requestNotificationPermissions = async (): Promise<void> => {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') {
+    await Notifications.requestPermissionsAsync();
+  }
+};
+
+// Schedule Notification
+const scheduleNotification = async (task: TaskType): Promise<void> => {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') {
+    console.log('Notification permissions not granted');
+    return;
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Task Reminder',
+      body: `Don't forget to: ${task.title}`,
+    },
+    trigger: {
+      seconds: 60, // Schedule for 1 minute from now; adjust as needed
+      repeats: false,
+    },
+  });
+};
+
 export default function TodoScreen(): JSX.Element {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskType[]>([]);
   const [taskTitle, setTaskTitle] = useState<string>('');
 
-  const addTask = (): void => {
+  useEffect(() => {
+    requestNotificationPermissions();
+  }, []);
+
+  const addTask = async (): Promise<void> => {
     if (taskTitle.trim()) {
-      const newTask = {
+      const newTask: TaskType = {
         id: Date.now().toString(),
         title: taskTitle,
         completed: false,
@@ -23,6 +59,7 @@ export default function TodoScreen(): JSX.Element {
       };
       setTasks([...tasks, newTask]);
       setTaskTitle('');
+      await scheduleNotification(newTask); // Schedule notification for the new task
     }
   };
 
@@ -62,7 +99,7 @@ export default function TodoScreen(): JSX.Element {
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -104,5 +141,3 @@ const styles = StyleSheet.create({
     fontSize: 36, 
   },
 });
-
-
