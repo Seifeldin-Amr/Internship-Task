@@ -24,7 +24,9 @@ export default function TodoScreen(): JSX.Element {
   };
 
   const toggleTaskCompletion = (id: string): void => {
-    setTasks(tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task));
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
   };
 
   return (
