@@ -39,9 +39,15 @@ export default function Task({ task, deleteTask, toggleTaskCompletion }: TaskPro
             Added at: {task.createdAt}
           </Text>
           {task.dueDate && (
-            <Text style={styles.dueDate}>
-              Due: {task.dueDate.toLocaleDateString()} {task.dueDate.toLocaleTimeString()}
-            </Text>
+            new Date(task.dueDate) < new Date() ? (
+              <Text style={styles.overdue}>
+                Overdue
+              </Text>
+            ) : (
+              <Text style={styles.dueDate}>
+                Due: {task.dueDate.toLocaleDateString()} {task.dueDate.toLocaleTimeString()}
+              </Text>
+            )
           )}
         </View>
       </View>
@@ -58,7 +64,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#fff',
     borderRadius: 5,
     marginBottom: 10,
     borderColor: '#ccc',
@@ -111,5 +117,9 @@ const styles = StyleSheet.create({
   deleteText: {
     color: 'red',
     fontWeight: 'bold',
+  },
+  overdue: {
+    fontSize: 14,
+    color: 'red', 
   },
 });

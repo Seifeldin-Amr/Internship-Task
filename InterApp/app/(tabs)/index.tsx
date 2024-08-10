@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Dimensions, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import BottomSheet from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Task from '../../components/Task';
 
 interface TaskType {
   id: string;
@@ -11,41 +12,8 @@ interface TaskType {
   completed: boolean;
   createdAt: string;
   dueDate: Date | null;
-  notificationId?: string; // Add notificationId
+  notificationId?: string;
 }
-
-import Task from '../../components/Task';
-
-const requestNotificationPermissions = async (): Promise<void> => {
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') {
-    await Notifications.requestPermissionsAsync();
-  }
-};
-
-const scheduleNotification = async (task: TaskType): Promise<string | null> => {
-  const { status } = await Notifications.getPermissionsAsync();
-  if (status !== 'granted') {
-    console.log('Notification permissions not granted');
-    return null;
-  }
-
-  const triggerDate = task.dueDate ? new Date(task.dueDate).getTime() / 1000 : Date.now() / 1000;
-  
-  const notificationId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Task Reminder',
-      body: `Don't forget to: ${task.title}`,
-    },
-    trigger: {
-      seconds: Math.max(triggerDate - (Date.now() / 1000), 0),
-      repeats: false,
-    },
-  });
-
-  console.log(`Scheduled notification ID: ${notificationId}`);
-  return notificationId;
-};
 
 export default function TodoScreen(): JSX.Element {
   const [tasks, setTasks] = useState<TaskType[]>([]);
@@ -56,8 +24,63 @@ export default function TodoScreen(): JSX.Element {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const screenHeight = Dimensions.get('window').height;
 
+  const requestNotificationPermissions = async (): Promise<void> => {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      await Notifications.requestPermissionsAsync();
+    }
+  };
+
+  const scheduleNotification = async (task: TaskType): Promise<string | undefined> => {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Notification permissions not granted');
+      return;
+    }
+
+    const triggerDate = task.dueDate ? new Date(task.dueDate).getTime() / 1000 : Date.now() / 1000;
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Task Reminder',
+        body: `Reminder for: ${task.title}`,
+      },
+      trigger: {
+        seconds: Math.max(triggerDate - (Date.now() / 1000), 0),
+        repeats: false,
+      },
+    });
+
+    return notificationId;
+  };
+
   useEffect(() => {
+    
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true, 
+        shouldPlaySound: true, 
+        shouldSetBadge: false, 
+      }),
+    });
+
+    
     requestNotificationPermissions();
+
+    
+    const notificationSubscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received in foreground:', notification);
+      
+    });
+
+    
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response received:', response);
+    });
+
+    return () => {
+      notificationSubscription.remove();
+      responseSubscription.remove();
+    };
   }, []);
 
   const addTask = async (): Promise<void> => {
@@ -69,7 +92,7 @@ export default function TodoScreen(): JSX.Element {
         createdAt: new Date().toLocaleString(),
         dueDate: dueDate,
       };
-      
+
       const notificationId = await scheduleNotification(newTask);
       newTask.notificationId = notificationId || '';
 
@@ -90,33 +113,28 @@ export default function TodoScreen(): JSX.Element {
   };
 
   const toggleTaskCompletion = async (id: string): Promise<void> => {
-    const updatedTasks = tasks.map(async task => {
+    const updatedTasks = await Promise.all(tasks.map(async task => {
       if (task.id === id) {
         if (!task.completed) {
-         
           if (task.notificationId) {
             console.log(`Canceling notification ID: ${task.notificationId}`);
             await Notifications.cancelScheduledNotificationAsync(task.notificationId);
           }
-          return { ...task, completed: true }; 
+          return { ...task, completed: true, notificationId: undefined };
         } else {
-         
+          let notificationId: string | undefined;
           if (task.dueDate) {
-            console.log(`r notification ID: ${task.notificationId}`);
-            const newTask = { ...task, completed: false };
-            await scheduleNotification(newTask);
+            console.log(`Scheduling notification for task ID: ${task.id}`);
+            notificationId = await scheduleNotification({ ...task, completed: false });
           }
-          return { ...task, completed: false }; 
+          return { ...task, completed: false, notificationId };
         }
       }
       return task;
-    });
-  
-    // Wait for all async tasks to complete
-    const resolvedTasks = await Promise.all(updatedTasks);
-    setTasks(resolvedTasks);
+    }));
+
+    setTasks(updatedTasks);
   };
-  
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -133,10 +151,10 @@ export default function TodoScreen(): JSX.Element {
           )}
         />
         <View style={styles.footer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
-              bottomSheetRef.current?.expand(); 
-            }} 
+              bottomSheetRef.current?.expand(); // Open the bottom sheet
+            }}
             style={styles.addButton}
           >
             <Text style={styles.addButtonText}>+</Text>
@@ -145,8 +163,15 @@ export default function TodoScreen(): JSX.Element {
         <BottomSheet
           ref={bottomSheetRef}
           index={-1} // Start closed
-          snapPoints={[screenHeight * 0.4, screenHeight * 0.6, screenHeight * 0.8]} 
+          snapPoints={[screenHeight * 0.4, screenHeight * 0.6, screenHeight * 0.8]}
           enablePanDownToClose 
+          backdropComponent={(props) => (
+            <BottomSheetBackdrop
+              {...props}
+              disappearsOnIndex={-1} 
+              opacity={0.5} 
+            />
+          )}
         >
           <View style={styles.sheetContainer}>
             <View style={styles.formContainer}>
@@ -222,35 +247,36 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    height: 150, // Adjusted height to match typical input size
+    height: 150, 
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 25,
     paddingHorizontal: 15,
-    paddingVertical: 0,
-    textAlign: 'center',
+    textAlign: 'left',
     fontSize: 16,
-    marginRight: 10,
+    marginBottom: 10, 
   },
   dateButton: {
     backgroundColor: '#007bff',
     padding: 5,
     borderRadius: 20,
-    marginVertical: 10,
+    marginBottom: 10, 
   },
   dateButtonText: {
     fontSize: 16,
     color: '#fff',
+    textAlign: 'center',
   },
   timeButton: {
     backgroundColor: '#007bff',
     padding: 5,
     borderRadius: 20,
-    marginVertical: 10,
+    marginBottom: 10, 
   },
   timeButtonText: {
     fontSize: 16,
     color: '#fff',
+    textAlign: 'center',
   },
   addButton: {
     backgroundColor: '#007bff',
@@ -262,25 +288,23 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 36,
+    fontSize: 25,
   },
   sheetContainer: {
     flex: 1,
     padding: 20,
-    justifyContent: 'space-between',
+    justifyContent: 'space-between', 
   },
   formContainer: {
     flex: 1,
-    justifyContent: 'flex-start', // Ensure form items push up
+    justifyContent: 'flex-start', 
   },
   addTaskButton: {
     backgroundColor: '#007bff',
     width: '100%',
     height: 50,
-    borderRadius: 5,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
   },
 });
-
