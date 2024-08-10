@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    height: 50,
+    height: 150, // Adjusted height to match typical input size
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 25,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Ensure form items push up
   },
   addTaskButton: {
     backgroundColor: '#007bff',
@@ -283,3 +283,4 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 });
+
