@@ -7,6 +7,7 @@ interface TaskProps {
     title: string;
     completed: boolean;
     createdAt: string; 
+    dueDate?: Date | null; 
   };
   deleteTask: (id: string) => void;
   toggleTaskCompletion: (id: string) => void;
@@ -37,6 +38,11 @@ export default function Task({ task, deleteTask, toggleTaskCompletion }: TaskPro
           <Text style={styles.taskTime}>
             Added at: {task.createdAt}
           </Text>
+          {task.dueDate && (
+            <Text style={styles.dueDate}>
+              Due: {task.dueDate.toLocaleDateString()} {task.dueDate.toLocaleTimeString()}
+            </Text>
+          )}
         </View>
       </View>
       <TouchableOpacity onPress={() => deleteTask(task.id)}>
@@ -96,7 +102,11 @@ const styles = StyleSheet.create({
   },
   taskTime: {
     fontSize: 14,
-    color: '#666',
+    color: '#333',
+  },
+  dueDate: {
+    fontSize: 14,
+    color: '#333',
   },
   deleteText: {
     color: 'red',
