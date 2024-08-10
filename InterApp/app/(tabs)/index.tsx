@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Dimensions } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import BottomSheet from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// Rename Task type to TaskType
 interface TaskType {
   id: string;
   title: string;
@@ -10,10 +11,8 @@ interface TaskType {
   createdAt: string;
 }
 
-// Import Task component if you have it in a separate file
 import Task from '../../components/Task';
 
-// Request Notification Permissions
 const requestNotificationPermissions = async (): Promise<void> => {
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') {
@@ -21,7 +20,6 @@ const requestNotificationPermissions = async (): Promise<void> => {
   }
 };
 
-// Schedule Notification
 const scheduleNotification = async (task: TaskType): Promise<void> => {
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') {
@@ -44,6 +42,8 @@ const scheduleNotification = async (task: TaskType): Promise<void> => {
 export default function TodoScreen(): JSX.Element {
   const [tasks, setTasks] = useState<TaskType[]>([]);
   const [taskTitle, setTaskTitle] = useState<string>('');
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const screenHeight = Dimensions.get('window').height;
 
   useEffect(() => {
     requestNotificationPermissions();
@@ -59,7 +59,8 @@ export default function TodoScreen(): JSX.Element {
       };
       setTasks([...tasks, newTask]);
       setTaskTitle('');
-      await scheduleNotification(newTask); // Schedule notification for the new task
+      bottomSheetRef.current?.close(); // Close the bottom sheet
+      await scheduleNotification(newTask); 
     }
   };
 
@@ -74,30 +75,50 @@ export default function TodoScreen(): JSX.Element {
   };
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={tasks}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <Task
-            task={item}
-            deleteTask={deleteTask}
-            toggleTaskCompletion={toggleTaskCompletion}
-          />
-        )}
-      />
-      <View style={styles.footer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter task title"
-          value={taskTitle}
-          onChangeText={setTaskTitle}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <FlatList
+          data={tasks}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <Task
+              task={item}
+              deleteTask={deleteTask}
+              toggleTaskCompletion={toggleTaskCompletion}
+            />
+          )}
         />
-        <TouchableOpacity onPress={addTask} style={styles.addButton}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+        <View style={styles.footer}>
+          <TouchableOpacity 
+            onPress={() => {
+              bottomSheetRef.current?.expand(); 
+            }} 
+            style={styles.addButton}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={-1} // Start closed
+          snapPoints={[screenHeight * 0.4, screenHeight * 0.6, screenHeight * 0.8]} // Use relative values
+          enablePanDownToClose 
+          onClose={() => {}}
+        >
+          <View style={styles.sheetContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter task title"
+              value={taskTitle}
+              onChangeText={setTaskTitle}
+            />
+            <TouchableOpacity onPress={addTask} style={styles.addButton}>
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheet>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -117,7 +138,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    width: 50, 
+    width: '100%', 
     height: 50,
     borderColor: '#ccc',
     borderWidth: 1,
@@ -139,5 +160,10 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#fff', 
     fontSize: 36, 
+  },
+  sheetContainer: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
   },
 });
